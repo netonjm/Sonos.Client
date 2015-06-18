@@ -1,9 +1,12 @@
-﻿using System;
+﻿using Sonos.Client.Models;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace Sonos.Client
 {
@@ -14,6 +17,7 @@ namespace Sonos.Client
         private int DefaultPort = 1400;
         private string SoapActionHeader = "SOAPACTION";
 
+        private const string DeviceDescriptionUrl = "xml/device_description.xml";
         private const string MediaRendererAVTransportUrl = "MediaRenderer/AVTransport/Control";
         private const string MediaRendererRenderingControlUrl = "MediaRenderer/RenderingControl/Control";
 
@@ -48,6 +52,68 @@ namespace Sonos.Client
             BaseUrl = string.Format(BaseUrlFormat, ipAddress, port);
         }
 
+        public async Task<DeviceDescription> GetDeviceDescription()
+        {
+            //using (var client = new HttpClient())
+            //{
+            //client.DefaultRequestHeaders.Add(SoapActionHeader, PlaySoapAction);
+            //HttpContent postContent = new StringContent(PlayBody, Encoding.UTF8, "text/xml");
+            //HttpResponseMessage response = await client.GetAsync(BaseUrl + "/" + MediaRendererAVTransportUrl);
+            //if (response.IsSuccessStatusCode)
+            //{
+            //var content = await response.Content.ReadAsStringAsync();
+
+            var settings = new XmlReaderSettings();
+            var obj = new DeviceDescription();
+            var reader = XmlReader.Create(BaseUrl + "/" + DeviceDescriptionUrl, settings);
+            var serializer = new System.Xml.Serialization.XmlSerializer(typeof(DeviceDescription));
+            obj = (DeviceDescription)serializer.Deserialize(reader);
+
+            return obj;
+            /*
+            StringBuilder output = new StringBuilder();
+
+            using (XmlReader reader = XmlReader.Create(new StringReader(content)))
+            {
+                XmlWriterSettings ws = new XmlWriterSettings();
+                ws.Indent = true;
+                using (XmlWriter writer = XmlWriter.Create(output, ws))
+                {
+
+                    // Parse the file and display each of the nodes.
+                    while (reader.Read())
+                    {
+                        switch (reader.NodeType)
+                        {
+                            case XmlNodeType.Element:
+                                writer.WriteStartElement(reader.Name);
+                                break;
+                            case XmlNodeType.Text:
+                                writer.WriteString(reader.Value);
+                                break;
+                            case XmlNodeType.XmlDeclaration:
+                            case XmlNodeType.ProcessingInstruction:
+                                writer.WriteProcessingInstruction(reader.Name, reader.Value);
+                                break;
+                            case XmlNodeType.Comment:
+                                writer.WriteComment(reader.Value);
+                                break;
+                            case XmlNodeType.EndElement:
+                                writer.WriteFullEndElement();
+                                break;
+                        }
+                    }
+
+                }
+            }*/
+            //return true;
+            //}
+            //else
+            //    {
+            //        return false;
+            //    }
+            //}
+        }
 
         public async Task<bool> Play()
         {
@@ -183,7 +249,7 @@ namespace Sonos.Client
                     var endIndex = content.IndexOf("</CurrentVolume>");
                     var volumeString = content.Substring(startIndex, endIndex - startIndex);
                     var volume = 0;
-                    if(Int32.TryParse(volumeString, out volume) && volume >= 0 && volume <= 100)
+                    if (Int32.TryParse(volumeString, out volume) && volume >= 0 && volume <= 100)
                     {
                         return volume;
                     }
