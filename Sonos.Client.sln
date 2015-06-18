@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.22823.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sonos.Client", "Sonos.Client\Sonos.Client.csproj", "{C6731E69-E046-48A0-AB06-54B7F4F6F9B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sonos.Test", "Sonos.Test\Sonos.Test.csproj", "{7E4C13EC-F111-4B3C-ADB6-8051BD86BDF3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C6731E69-E046-48A0-AB06-54B7F4F6F9B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6731E69-E046-48A0-AB06-54B7F4F6F9B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6731E69-E046-48A0-AB06-54B7F4F6F9B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6731E69-E046-48A0-AB06-54B7F4F6F9B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E4C13EC-F111-4B3C-ADB6-8051BD86BDF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E4C13EC-F111-4B3C-ADB6-8051BD86BDF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E4C13EC-F111-4B3C-ADB6-8051BD86BDF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E4C13EC-F111-4B3C-ADB6-8051BD86BDF3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
