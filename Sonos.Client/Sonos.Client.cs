@@ -3,15 +3,32 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Serialization;
 
 namespace Sonos.Client
 {
     public class SonosClient
     {
+
+        public event NotificationEventHandler NotificationEvent;
+        public delegate void NotificationEventHandler(Object sender, Event e);
+
+        protected virtual void OnNotificationEvent(Event e)
+        {
+            NotificationEventHandler handler = NotificationEvent;
+            if (handler != null)
+            {
+                handler(this, e);
+            }
+        }
+
         private string BaseUrl;
         private string BaseUrlFormat = "http://{0}:{1}";
         private int DefaultPort = 1400;
@@ -20,6 +37,7 @@ namespace Sonos.Client
         private const string DeviceDescriptionUrl = "xml/device_description.xml";
         private const string MediaRendererAVTransportUrl = "MediaRenderer/AVTransport/Control";
         private const string MediaRendererRenderingControlUrl = "MediaRenderer/RenderingControl/Control";
+        private const string MediaRendererAVTransportEventUrl = "MediaRenderer/AVTransport/Event";
 
         private const string PlayBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>";
         private const string PlaySoapAction = "urn:schemas-upnp-org:service:AVTransport:1#Play";
@@ -52,67 +70,106 @@ namespace Sonos.Client
             BaseUrl = string.Format(BaseUrlFormat, ipAddress, port);
         }
 
+        public async Task<Event> ParseNotification(string notification)
+        {
+            try
+            {
+                notification = notification.Replace("<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"><e:property><LastChange>", "");
+                notification = notification.Replace("</LastChange></e:property></e:propertyset>", "");
+                notification = notification.Replace("&lt;", "<");
+                notification = notification.Replace("&gt;", ">");
+                notification = notification.Replace("&quot;", "\"");
+                notification = notification.Replace("&amp;", "&");
+                notification = notification.Replace("<r:", "<");
+                notification = notification.Replace("  ", "");
+                notification = notification.Replace("\t", "");
+                notification = notification.Replace("xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&quot;urn:schemas-upnp-org:metadata-1-0/upnp/&quot; xmlns:r=&quot;urn:schemas-rinconnetworks-com:metadata-1-0/&quot; xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot;", "");
+
+                Regex namespaceRegex = new Regex("xmlns:*(.*?)=(\".*?\")");
+                var notification2 = namespaceRegex.Replace(notification, "");
+                notification2 = notification2.Replace("  >", ">");
+                notification2 = notification2.Replace(" >", ">");
+                var settings = new XmlReaderSettings();
+                var obj = new Event();
+                var serializer = new System.Xml.Serialization.XmlSerializer(typeof(Event));
+                obj = (Event)serializer.Deserialize(new StringReader(notification2));
+
+                try
+                {
+                    obj.InstanceID.CurrentTrackMetaData.TrackMeta = await GetTrackMetaData(obj.InstanceID.CurrentTrackMetaData.Val);
+                }
+                catch (Exception e) { }
+                try
+                {
+                    obj.InstanceID.NextTrackMetaData.TrackMeta = await GetTrackMetaData(obj.InstanceID.NextTrackMetaData.Val);
+                }
+                catch (Exception e) { }
+
+                OnNotificationEvent(obj);
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
+        }
+
+        private async Task<TrackMeta> GetTrackMetaData(string metaData)
+        {
+            metaData = metaData.Replace("upnp:", "");
+            metaData = metaData.Replace("dc:", "");
+            metaData = metaData.Replace("r:", "");
+            metaData = metaData.Replace("upnp:", "");
+
+            var trackMetaSerializer = new XmlSerializer(typeof(TrackMeta));
+            TrackMeta trackMeta = (TrackMeta)trackMetaSerializer.Deserialize(new StringReader(metaData));
+
+            return trackMeta;
+        }
+
+        public async Task<bool> Subscribe(string localIpAddress, int localPort)
+        {
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add(SoapActionHeader, PlaySoapAction);
+                client.DefaultRequestHeaders.Add("CALLBACK", string.Format("<http://{0}:{1}/notify>", localIpAddress, localPort));
+                client.DefaultRequestHeaders.Add("TIMEOUT", "Second-3600");
+                client.DefaultRequestHeaders.Add("NT", "upnp:event");
+                HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("SUBSCRIBE"), BaseUrl + "/" + MediaRendererAVTransportEventUrl);
+                HttpResponseMessage response = await client.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
         public async Task<DeviceDescription> GetDeviceDescription()
         {
-            //using (var client = new HttpClient())
-            //{
-            //client.DefaultRequestHeaders.Add(SoapActionHeader, PlaySoapAction);
-            //HttpContent postContent = new StringContent(PlayBody, Encoding.UTF8, "text/xml");
-            //HttpResponseMessage response = await client.GetAsync(BaseUrl + "/" + MediaRendererAVTransportUrl);
-            //if (response.IsSuccessStatusCode)
-            //{
-            //var content = await response.Content.ReadAsStringAsync();
-
-            var settings = new XmlReaderSettings();
-            var obj = new DeviceDescription();
-            var reader = XmlReader.Create(BaseUrl + "/" + DeviceDescriptionUrl, settings);
-            var serializer = new System.Xml.Serialization.XmlSerializer(typeof(DeviceDescription));
-            obj = (DeviceDescription)serializer.Deserialize(reader);
-
-            return obj;
-            /*
-            StringBuilder output = new StringBuilder();
-
-            using (XmlReader reader = XmlReader.Create(new StringReader(content)))
+            using (var client = new HttpClient())
             {
-                XmlWriterSettings ws = new XmlWriterSettings();
-                ws.Indent = true;
-                using (XmlWriter writer = XmlWriter.Create(output, ws))
+                HttpResponseMessage response = await client.GetAsync(BaseUrl + "/" + DeviceDescriptionUrl);
+                if (response.IsSuccessStatusCode)
                 {
+                    var content = await response.Content.ReadAsStringAsync();
 
-                    // Parse the file and display each of the nodes.
-                    while (reader.Read())
-                    {
-                        switch (reader.NodeType)
-                        {
-                            case XmlNodeType.Element:
-                                writer.WriteStartElement(reader.Name);
-                                break;
-                            case XmlNodeType.Text:
-                                writer.WriteString(reader.Value);
-                                break;
-                            case XmlNodeType.XmlDeclaration:
-                            case XmlNodeType.ProcessingInstruction:
-                                writer.WriteProcessingInstruction(reader.Name, reader.Value);
-                                break;
-                            case XmlNodeType.Comment:
-                                writer.WriteComment(reader.Value);
-                                break;
-                            case XmlNodeType.EndElement:
-                                writer.WriteFullEndElement();
-                                break;
-                        }
-                    }
+                    var settings = new XmlReaderSettings();
+                    var obj = new DeviceDescription();
+                    var serializer = new System.Xml.Serialization.XmlSerializer(typeof(DeviceDescription));
+                    obj = (DeviceDescription)serializer.Deserialize(new StringReader(content));
 
+                    return obj;
                 }
-            }*/
-            //return true;
-            //}
-            //else
-            //    {
-            //        return false;
-            //    }
-            //}
+                else
+                {
+                    return null;
+                }
+            }
         }
 
         public async Task<bool> Play()

@@ -38,6 +38,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Models\DeviceDescription.cs" />
+    <Compile Include="Models\Event.cs" />
+    <Compile Include="Models\Notification.cs" />
+    <Compile Include="Models\TrackMeta.cs" />
     <Compile Include="Sonos.Client.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
