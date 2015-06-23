@@ -28,7 +28,7 @@ namespace Sonos.Test
                     sonosClient = new SonosClient(ip);
                 }
 
-                var deviceDescription = sonosClient.GetDeviceDescriptionNew().Result;
+                //var deviceDescription = sonosClient.GetDeviceDescriptionNew().Result;
 
                 var playing = sonosClient.IsPlaying().Result;
                 var volume = sonosClient.GetVolume().Result;

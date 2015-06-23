@@ -19,7 +19,7 @@ namespace Sonos.Client.Models
             {
                 if (Val == null)
                     return false;
-                return Val == "PLAYING" ? true : false;
+                return Val == "PLAYING" || Val == "TRANSITIONING" ? true : false;
             }
         }
     }
@@ -257,6 +257,103 @@ namespace Sonos.Client.Models
         public string Val { get; set; }
     }
 
+    [XmlRoot(ElementName = "Volume")]
+    public class Volume
+    {
+        [XmlAttribute(AttributeName = "channel")]
+        public string Channel { get; set; }
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "Mute")]
+    public class Mute
+    {
+        [XmlAttribute(AttributeName = "channel")]
+        public string Channel { get; set; }
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "Bass")]
+    public class Bass
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "Treble")]
+    public class Treble
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "Loudness")]
+    public class Loudness
+    {
+        [XmlAttribute(AttributeName = "channel")]
+        public string Channel { get; set; }
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "OutputFixed")]
+    public class OutputFixed
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "HeadphoneConnected")]
+    public class HeadphoneConnected
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "SpeakerSize")]
+    public class SpeakerSize
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "SubGain")]
+    public class SubGain
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "SubCrossover")]
+    public class SubCrossover
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "SubPolarity")]
+    public class SubPolarity
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "SubEnabled")]
+    public class SubEnabled
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "PresetNameList")]
+    public class PresetNameList
+    {
+        [XmlAttribute(AttributeName = "val")]
+        public string Val { get; set; }
+    }
+
     [XmlRoot(ElementName = "InstanceID")]
     public class InstanceID
     {
@@ -326,6 +423,32 @@ namespace Sonos.Client.Models
         public CurrentRecordQualityMode CurrentRecordQualityMode { get; set; }
         [XmlElement(ElementName = "PossibleRecordQualityModes")]
         public PossibleRecordQualityModes PossibleRecordQualityModes { get; set; }
+        [XmlElement(ElementName = "Volume")]
+        public List<Volume> Volume { get; set; }
+        [XmlElement(ElementName = "Mute")]
+        public List<Mute> Mute { get; set; }
+        [XmlElement(ElementName = "Bass")]
+        public Bass Bass { get; set; }
+        [XmlElement(ElementName = "Treble")]
+        public Treble Treble { get; set; }
+        [XmlElement(ElementName = "Loudness")]
+        public Loudness Loudness { get; set; }
+        [XmlElement(ElementName = "OutputFixed")]
+        public OutputFixed OutputFixed { get; set; }
+        [XmlElement(ElementName = "HeadphoneConnected")]
+        public HeadphoneConnected HeadphoneConnected { get; set; }
+        [XmlElement(ElementName = "SpeakerSize")]
+        public SpeakerSize SpeakerSize { get; set; }
+        [XmlElement(ElementName = "SubGain")]
+        public SubGain SubGain { get; set; }
+        [XmlElement(ElementName = "SubCrossover")]
+        public SubCrossover SubCrossover { get; set; }
+        [XmlElement(ElementName = "SubPolarity")]
+        public SubPolarity SubPolarity { get; set; }
+        [XmlElement(ElementName = "SubEnabled")]
+        public SubEnabled SubEnabled { get; set; }
+        [XmlElement(ElementName = "PresetNameList")]
+        public PresetNameList PresetNameList { get; set; }
         [XmlAttribute(AttributeName = "val")]
         public string Val { get; set; }
     }

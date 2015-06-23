@@ -1,6 +1,7 @@
 ﻿using Sonos.Client.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -60,6 +61,9 @@ namespace Sonos.Client
         private const string GetVolumeBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetVolume xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel></u:GetVolume></s:Body></s:Envelope>";
         private const string GetVolumeSoapAction = "urn:schemas-upnp-org:service:RenderingControl:1#GetVolume";
 
+        private const string GetPositionInfoBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"> <s:Body> <u:GetPositionInfo xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:GetPositionInfo></s:Body></s:Envelope>";
+        private const string GetPositionInfoSoapAction = "urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo";
+
         public SonosClient(string ipAddress)
         {
             BaseUrl = string.Format(BaseUrlFormat, ipAddress, DefaultPort);
@@ -74,25 +78,12 @@ namespace Sonos.Client
         {
             try
             {
-                notification = notification.Replace("<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"><e:property><LastChange>", "");
-                notification = notification.Replace("</LastChange></e:property></e:propertyset>", "");
-                notification = notification.Replace("&lt;", "<");
-                notification = notification.Replace("&gt;", ">");
-                notification = notification.Replace("&quot;", "\"");
-                notification = notification.Replace("&amp;", "&");
-                notification = notification.Replace("<r:", "<");
-                notification = notification.Replace("  ", "");
-                notification = notification.Replace("\t", "");
-                notification = notification.Replace("xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&quot;urn:schemas-upnp-org:metadata-1-0/upnp/&quot; xmlns:r=&quot;urn:schemas-rinconnetworks-com:metadata-1-0/&quot; xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot;", "");
+                notification = SonosUtils.CleanSonosNotification(notification);
 
-                Regex namespaceRegex = new Regex("xmlns:*(.*?)=(\".*?\")");
-                var notification2 = namespaceRegex.Replace(notification, "");
-                notification2 = notification2.Replace("  >", ">");
-                notification2 = notification2.Replace(" >", ">");
                 var settings = new XmlReaderSettings();
                 var obj = new Event();
-                var serializer = new System.Xml.Serialization.XmlSerializer(typeof(Event));
-                obj = (Event)serializer.Deserialize(new StringReader(notification2));
+                var serializer = new XmlSerializer(typeof(Event));
+                obj = (Event)serializer.Deserialize(new StringReader(notification));
 
                 try
                 {
@@ -117,15 +108,19 @@ namespace Sonos.Client
 
         private async Task<TrackMeta> GetTrackMetaData(string metaData)
         {
-            metaData = metaData.Replace("upnp:", "");
-            metaData = metaData.Replace("dc:", "");
-            metaData = metaData.Replace("r:", "");
-            metaData = metaData.Replace("upnp:", "");
+            try
+            {
+                metaData = SonosUtils.CleanSonosResponse(metaData);
 
-            var trackMetaSerializer = new XmlSerializer(typeof(TrackMeta));
-            TrackMeta trackMeta = (TrackMeta)trackMetaSerializer.Deserialize(new StringReader(metaData));
+                var trackMetaSerializer = new XmlSerializer(typeof(TrackMeta));
+                TrackMeta trackMeta = (TrackMeta)trackMetaSerializer.Deserialize(new StringReader(metaData));
 
-            return trackMeta;
+                return trackMeta;
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
         }
 
         public async Task<bool> Subscribe(string localIpAddress, int localPort)
@@ -145,6 +140,35 @@ namespace Sonos.Client
                 else
                 {
                     return false;
+                }
+            }
+        }
+
+        public async Task<PositionInfoResponse> GetPositionInfo()
+        {
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add(SoapActionHeader, GetPositionInfoSoapAction);
+                HttpContent postContent = new StringContent(GetPositionInfoBody, Encoding.UTF8, "text/xml");
+                HttpResponseMessage response = await client.PostAsync(BaseUrl + "/" + MediaRendererAVTransportUrl, postContent);
+                if (response.IsSuccessStatusCode)
+                {
+                    //Set proper content encoding without quotes
+                    response.Content.Headers.Remove("CONTENT-TYPE");
+                    response.Content.Headers.Add("CONTENT-TYPE", "text/xml; charset=UTF-8");
+                    var content = await response.Content.ReadAsStringAsync();
+                    content = SonosUtils.CleanSonosResponse(content);
+
+                    var settings = new XmlReaderSettings();
+                    var obj = new Envelope();
+                    var serializer = new XmlSerializer(typeof(Envelope));
+                    obj = (Envelope)serializer.Deserialize(new StringReader(content));
+
+                    return obj.Body.PositionInfoResponse;
+                }
+                else
+                {
+                    return null;
                 }
             }
         }
