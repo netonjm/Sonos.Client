@@ -264,6 +264,13 @@ namespace Sonos.Client.Models
         public string Channel { get; set; }
         [XmlAttribute(AttributeName = "val")]
         public string Val { get; set; }
+        public int VolumeValue
+        {
+            get
+            {
+                return Int32.Parse(Val);
+            }
+        }
     }
 
     [XmlRoot(ElementName = "Mute")]
@@ -273,6 +280,13 @@ namespace Sonos.Client.Models
         public string Channel { get; set; }
         [XmlAttribute(AttributeName = "val")]
         public string Val { get; set; }
+        public bool MuteValue
+        {
+            get
+            {
+                return Val != "0";
+            }
+        }
     }
 
     [XmlRoot(ElementName = "Bass")]

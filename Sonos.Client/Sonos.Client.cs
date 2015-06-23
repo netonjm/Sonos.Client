@@ -37,8 +37,9 @@ namespace Sonos.Client
 
         private const string DeviceDescriptionUrl = "xml/device_description.xml";
         private const string MediaRendererAVTransportUrl = "MediaRenderer/AVTransport/Control";
-        private const string MediaRendererRenderingControlUrl = "MediaRenderer/RenderingControl/Control";
         private const string MediaRendererAVTransportEventUrl = "MediaRenderer/AVTransport/Event";
+        private const string MediaRendererRenderingControlUrl = "MediaRenderer/RenderingControl/Control";
+        private const string MediaRendererRenderingControlEventUrl = "MediaRenderer/RenderingControl/Event";
 
         private const string PlayBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>";
         private const string PlaySoapAction = "urn:schemas-upnp-org:service:AVTransport:1#Play";
@@ -125,13 +126,40 @@ namespace Sonos.Client
 
         public async Task<bool> Subscribe(string localIpAddress, int localPort)
         {
+            var avTransport = await SubscribeToAVTransport(localIpAddress, localPort);
+            var renderingControl = await SubscribeToRenderingControl(localIpAddress, localPort);
+
+            return avTransport && renderingControl;
+        }
+
+        public async Task<bool> SubscribeToAVTransport(string localIpAddress, int localPort)
+        {
             using (var client = new HttpClient())
             {
-                client.DefaultRequestHeaders.Add(SoapActionHeader, PlaySoapAction);
                 client.DefaultRequestHeaders.Add("CALLBACK", string.Format("<http://{0}:{1}/notify>", localIpAddress, localPort));
                 client.DefaultRequestHeaders.Add("TIMEOUT", "Second-3600");
                 client.DefaultRequestHeaders.Add("NT", "upnp:event");
                 HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("SUBSCRIBE"), BaseUrl + "/" + MediaRendererAVTransportEventUrl);
+                HttpResponseMessage response = await client.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        public async Task<bool> SubscribeToRenderingControl(string localIpAddress, int localPort)
+        {
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("CALLBACK", string.Format("<http://{0}:{1}/notify>", localIpAddress, localPort));
+                client.DefaultRequestHeaders.Add("TIMEOUT", "Second-3600");
+                client.DefaultRequestHeaders.Add("NT", "upnp:event");
+                HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("SUBSCRIBE"), BaseUrl + "/" + MediaRendererRenderingControlEventUrl);
                 HttpResponseMessage response = await client.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
