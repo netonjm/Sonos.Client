@@ -59,11 +59,15 @@ namespace Sonos.Client.Models
         public string Val { get; set; }
     }
 
-    [XmlRoot(ElementName = "CurrentTrackURI")]
-    public class CurrentTrackURI
+    public class TrackURI
     {
         [XmlAttribute(AttributeName = "val")]
         public string Val { get; set; }
+    }
+
+    [XmlRoot(ElementName = "CurrentTrackURI")]
+    public class CurrentTrackURI : TrackURI
+    {
     }
 
     [XmlRoot(ElementName = "CurrentTrackDuration")]
@@ -89,10 +93,8 @@ namespace Sonos.Client.Models
     }
 
     [XmlRoot(ElementName = "NextTrackURI")]
-    public class NextTrackURI
+    public class NextTrackURI : TrackURI
     {
-        [XmlAttribute(AttributeName = "val")]
-        public string Val { get; set; }
     }
 
     [XmlRoot(ElementName = "NextTrackMetaData")]

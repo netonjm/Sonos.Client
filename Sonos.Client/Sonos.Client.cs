@@ -1,4 +1,7 @@
-﻿using Sonos.Client.Models;
+﻿//using Newtonsoft.Json;
+using Newtonsoft.Json;
+using Sonos.Client.Models;
+using Sonos.Client.Models.Spotify;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,7 +20,6 @@ namespace Sonos.Client
 {
     public class SonosClient
     {
-
         public event NotificationEventHandler NotificationEvent;
         public delegate void NotificationEventHandler(Object sender, Event e);
 
@@ -53,6 +55,9 @@ namespace Sonos.Client
         private const string PreviousBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Previous xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Speed>1</Previous></u:Pause></s:Body></s:Envelope>";
         private const string PreviousSoapAction = "urn:schemas-upnp-org:service:AVTransport:1#Previous";
 
+        private const string SetMuteBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body> <u:SetMute xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>{0}</DesiredMute></u:SetMute></s:Body></s:Envelope>";
+        private const string SetMuteSoapAction = "urn:schemas-upnp-org:service:RenderingControl:1#SetMute";
+
         private const string SetVolumeBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetVolume xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>{0}</DesiredVolume></u:SetVolume></s:Body></s:Envelope>";
         private const string SetVolumeSoapAction = "urn:schemas-upnp-org:service:RenderingControl:1#SetVolume";
 
@@ -65,6 +70,8 @@ namespace Sonos.Client
         private const string GetPositionInfoBody = "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"> <s:Body> <u:GetPositionInfo xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:GetPositionInfo></s:Body></s:Envelope>";
         private const string GetPositionInfoSoapAction = "urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo";
 
+        private DeviceDescription deviceDescription;
+
         public SonosClient(string ipAddress)
         {
             BaseUrl = string.Format(BaseUrlFormat, ipAddress, DefaultPort);
@@ -75,10 +82,41 @@ namespace Sonos.Client
             BaseUrl = string.Format(BaseUrlFormat, ipAddress, port);
         }
 
+        public async Task<Propertyset> ParseZoneGroupTopologyNotification(string notification)
+        {
+            try
+            {
+                notification = notification.Replace("&lt;", "<");
+                notification = notification.Replace("&gt;", ">");
+                notification = notification.Replace("&quot;", "\"");
+                notification = notification.Replace("&amp;", "&");
+                notification = notification.Replace("&lt;", "<");
+                notification = notification.Replace("&gt;", ">");
+                notification = notification.Replace("&quot;", "\"");
+                notification = notification.Replace("&amp;", "&");
+                notification = notification.Replace("&lt;", "<");
+                notification = notification.Replace("&gt;", ">");
+                notification = notification.Replace("&quot;", "\"");
+                notification = notification.Replace("&amp;", "&");
+
+                var settings = new XmlReaderSettings();
+                var obj = new Propertyset();
+                var serializer = new XmlSerializer(typeof(Propertyset));
+                obj = (Propertyset)serializer.Deserialize(new StringReader(notification));
+
+                return obj;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
         public async Task<Event> ParseNotification(string notification)
         {
             try
             {
+
                 notification = SonosUtils.CleanSonosNotification(notification);
 
                 var settings = new XmlReaderSettings();
@@ -128,8 +166,9 @@ namespace Sonos.Client
         {
             var avTransport = await SubscribeToAVTransport(localIpAddress, localPort);
             var renderingControl = await SubscribeToRenderingControl(localIpAddress, localPort);
+            var zoneGroupTopology = await SubscribeToZoneGroupTopology(localIpAddress, localPort);
 
-            return avTransport && renderingControl;
+            return avTransport && renderingControl && zoneGroupTopology;
         }
 
         public async Task<bool> SubscribeToAVTransport(string localIpAddress, int localPort)
@@ -160,6 +199,25 @@ namespace Sonos.Client
                 client.DefaultRequestHeaders.Add("TIMEOUT", "Second-3600");
                 client.DefaultRequestHeaders.Add("NT", "upnp:event");
                 HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("SUBSCRIBE"), BaseUrl + "/" + MediaRendererRenderingControlEventUrl);
+                HttpResponseMessage response = await client.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+        public async Task<bool> SubscribeToZoneGroupTopology(string localIpAddress, int localPort)
+        {
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("CALLBACK", string.Format("<http://{0}:{1}/notify>", localIpAddress, localPort));
+                client.DefaultRequestHeaders.Add("TIMEOUT", "Second-3600");
+                client.DefaultRequestHeaders.Add("NT", "upnp:event");
+                HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("SUBSCRIBE"), BaseUrl + "/" + "ZoneGroupTopology/Event");
                 HttpResponseMessage response = await client.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
@@ -203,19 +261,50 @@ namespace Sonos.Client
 
         public async Task<DeviceDescription> GetDeviceDescription()
         {
+            if (deviceDescription != null)
+                return deviceDescription;
+            else
+            {
+                using (var client = new HttpClient())
+                {
+                    HttpResponseMessage response = await client.GetAsync(BaseUrl + "/" + DeviceDescriptionUrl);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+
+                        var settings = new XmlReaderSettings();
+                        var obj = new DeviceDescription();
+                        var serializer = new System.Xml.Serialization.XmlSerializer(typeof(DeviceDescription));
+                        obj = (DeviceDescription)serializer.Deserialize(new StringReader(content));
+
+                        deviceDescription = obj;
+
+                        return obj;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        public async Task<Track> GetTrackInfo(TrackURI trackUri)
+        {
             using (var client = new HttpClient())
             {
-                HttpResponseMessage response = await client.GetAsync(BaseUrl + "/" + DeviceDescriptionUrl);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                //client.DefaultRequestHeaders.Add("CSP", "active");
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.130 Safari/537.36");
+                var trackUriString = "https://embed.spotify.com/oembed/?url=" + trackUri.Val.Replace("x-sonos-spotify:", "").Replace("?sid=9&flags=32&sn=2", "").Replace("%3a", ":");
+                Debug.WriteLine(trackUriString);
+                HttpResponseMessage response = await client.GetAsync(trackUriString);
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
+                    var track = JsonConvert.DeserializeObject<Track>(content);
 
-                    var settings = new XmlReaderSettings();
-                    var obj = new DeviceDescription();
-                    var serializer = new System.Xml.Serialization.XmlSerializer(typeof(DeviceDescription));
-                    obj = (DeviceDescription)serializer.Deserialize(new StringReader(content));
-
-                    return obj;
+                    return track;
                 }
                 else
                 {
@@ -304,6 +393,25 @@ namespace Sonos.Client
             {
                 var body = string.Format(SetVolumeBody, percentage);
                 client.DefaultRequestHeaders.Add(SoapActionHeader, SetVolumeSoapAction);
+                HttpContent postContent = new StringContent(body, Encoding.UTF8, "text/xml");
+                HttpResponseMessage response = await client.PostAsync(BaseUrl + "/" + MediaRendererRenderingControlUrl, postContent);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        public async Task<bool> SetMute(bool mute)
+        {
+            using (var client = new HttpClient())
+            {
+                var body = string.Format(SetMuteBody, mute ? 1 : 0);
+                client.DefaultRequestHeaders.Add(SoapActionHeader, SetMuteSoapAction);
                 HttpContent postContent = new StringContent(body, Encoding.UTF8, "text/xml");
                 HttpResponseMessage response = await client.PostAsync(BaseUrl + "/" + MediaRendererRenderingControlUrl, postContent);
                 if (response.IsSuccessStatusCode)
